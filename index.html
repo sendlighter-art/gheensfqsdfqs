@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple Chat</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onChildAdded, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+    // ✅ Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCPvXm6dLnoTYFPcHq1pimSnhXUg26qd_I",
+      authDomain: "testchat-8daad.firebaseapp.com",
+      databaseURL: "https://testchat-8daad-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "testchat-8daad",
+      storageBucket: "testchat-8daad.appspot.com",
+      messagingSenderId: "725815135437",
+      appId: "1:725815135437:web:8ca33be811fbd9cde66d84",
+      measurementId: "G-3K0VS1GF33"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Global vars
+    let currentChannel = null;
+    let currentUser = null;
+
+    // Load channels
+    async function loadChats() {
+      const chatList = document.getElementById("chatList");
+      chatList.innerHTML = "";
+      const snapshot = await get(ref(db, "channels"));
+      if (snapshot.exists()) {
+        Object.keys(snapshot.val()).forEach(channel => {
+          const btn = document.createElement("button");
+          btn.innerText = channel;
+          btn.onclick = () => showLogin(channel);
+          chatList.appendChild(btn);
+        });
+      }
+    }
+
+    // Create channel
+    async function createChat() {
+      const name = prompt("Enter channel name:");
+      const pass = prompt("Set a password:");
+      if (!name || !pass) return;
+      await set(ref(db, "channels/" + name), { password: pass });
+      loadChats();
+    }
+
+    // Login to channel
+    function showLogin(channel) {
+      currentChannel = channel;
+      document.getElementById("chatTitle").innerText = "Join " + channel;
+      document.getElementById("loginBox").style.display = "block";
+    }
+
+    async function joinChat() {
+      const pass = document.getElementById("passwordInput").value;
+      const snapshot = await get(ref(db, "channels/" + currentChannel));
+      if (snapshot.exists() && snapshot.val().password === pass) {
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("usernameBox").style.display = "block";
+      } else {
+        alert("Wrong password");
+      }
+    }
+
+    function enterChat() {
+      currentUser = document.getElementById("usernameInput").value;
+      if (!currentUser) return;
+      document.getElementById("usernameBox").style.display = "none";
+      document.getElementById("chatBox").style.display = "block";
+      document.getElementById("currentChat").innerText = currentChannel;
+
+      // Listen for messages
+      onChildAdded(ref(db, "messages/" + currentChannel), snap => {
+        const msg = snap.val();
+        const div = document.createElement("div");
+        div.innerText = msg.user + ": " + msg.text;
+        document.getElementById("chatWindow").appendChild(div);
+        document.getElementById("chatWindow").scrollTop =
+          document.getElementById("chatWindow").scrollHeight;
+      });
+    }
+
+    async function sendMessage() {
+      const text = document.getElementById("messageInput").value;
+      if (!text) return;
+      await push(ref(db, "messages/" + currentChannel), {
+        user: currentUser,
+        text: text
+      });
+      document.getElementById("messageInput").value = "";
+    }
+
+    // Expose functions
+    window.createChat = createChat;
+    window.joinChat = joinChat;
+    window.enterChat = enterChat;
+    window.sendMessage = sendMessage;
+
+    // Load on start
+    loadChats();
+  </script>
+  <style>
+    body { font-family: Arial, sans-serif; margin:20px; background:#f5f5f5; }
+    h2 { color:#333; }
+    button { margin:5px; padding:8px 12px; cursor:pointer; }
+    #chatList button { display:block; width:200px; text-align:left; }
+    #chatWindow { border:1px solid #ccc; padding:10px; height:300px; overflow-y:auto; background:white; }
+    #messageBox { margin-top:10px; }
+    input { padding:6px; margin:4px 0; }
+  </style>
+</head>
+<body>
+  <h2>🔥 Simple Chat</h2>
+  <button onclick="createChat()">➕ Create Chat</button>
+  <div id="chatList"></div>
+
+  <!-- Login -->
+  <div id="loginBox" style="display:none;">
+    <h3 id="chatTitle"></h3>
+    <input id="passwordInput" type="password" placeholder="Enter password"><br>
+    <button onclick="joinChat()">Join Chat</button>
+  </div>
+
+  <!-- Username -->
+  <div id="usernameBox" style="display:none;">
+    <input id="usernameInput" placeholder="Choose a username"><br>
+    <button onclick="enterChat()">Enter Chat</button>
+  </div>
+
+  <!-- Chat -->
+  <div id="chatBox" style="display:none;">
+    <h3 id="currentChat"></h3>
+    <div id="chatWindow"></div>
+    <div id="messageBox">
+      <input id="messageInput" placeholder="Type message..." style="width:70%;">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</body>
+</html>
